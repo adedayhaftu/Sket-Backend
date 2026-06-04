@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.database import test_connection
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import users, transactions, spikes, stability
+from app.routers import users, transactions, spikes, stability, buckets 
 
 app = FastAPI(
     title="SUKET Backend API",
@@ -27,7 +27,8 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(transactions.router)
 app.include_router(spikes.router)
-app.include_router(stability.router) # <-- NEW
+app.include_router(stability.router) 
+app.include_router(buckets.router) 
 
 @app.get("/")
 def read_root():

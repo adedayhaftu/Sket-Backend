@@ -45,3 +45,8 @@ class SpikeCreate(BaseModel):
     title: str # e.g., "Toothache"
     amount: float
     description: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    monthly_income: Optional[float] = None
