@@ -18,19 +18,30 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True # Allows Pydantic to read from Supabase dictionaries
+        from_attributes = True
 
-# --- Transaction Models ---
+# --- Transaction Models (Feature 3 & 7) ---
 class TransactionCreate(BaseModel):
     user_id: UUID
     amount: float
-    category: str
-    emotion_tag: Optional[str] = None
+    category: str # e.g., "food", "transport", "coffee"
     description: Optional[str] = None
 
-# --- Spike Models ---
+class TransactionResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    amount: float
+    category: str
+    emotion_tag: Optional[str] # AI will fill this!
+    description: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# --- Spike Models (Feature 6) ---
 class SpikeCreate(BaseModel):
     user_id: UUID
-    title: str
+    title: str # e.g., "Toothache"
     amount: float
     description: Optional[str] = None
