@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.database import test_connection
+from fastapi.middleware.cors import CORSMiddleware
 from app.routers import users, transactions, spikes, stability
 
 app = FastAPI(
@@ -7,6 +8,20 @@ app = FastAPI(
     description="AI Household Stress Stabilization Platform Backend",
     version="1.0.0"
 )
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Include all routers
 app.include_router(users.router)
