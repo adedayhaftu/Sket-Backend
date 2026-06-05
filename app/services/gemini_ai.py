@@ -123,3 +123,111 @@ def generate_survival_plan(income: float, survival: float, joy: float, buffer: f
             {"week": 3, "action": "Prepare for Threats", "focus": "Pause all non-essential spending.", "budget_adjustment": "Freeze Joy bucket completely."},
             {"week": 4, "action": "Rebuild Buffer", "focus": "Restore financial safety net.", "budget_adjustment": "Redirect all savings back to Buffer."}
         ]
+
+def parse_voice_input(transcript: str, language: str = "auto") -> dict:
+    """
+    Uses AI to parse voice input in ANY language (English, Amharic, etc.)
+    Returns structured expense data without any hardcoding.
+    """
+    
+    language_instruction = ""
+    if language == "am":
+        language_instruction = "The text is in Amharic (አማርኛ)."
+    elif language == "en":
+        language_instruction = "The text is in English."
+    else:
+        language_instruction = "Detect the language automatically."
+    
+    prompt = f"""
+    You are an expense parser for a financial app.
+    {language_instruction}
+    
+    User said: "{transcript}"
+    
+    Extract the expense information and return ONLY a valid JSON object with these exact keys:
+    - "amount" (number, the expense amount in ETB)
+    - "category" (string, one of: "food", "transport", "rent", "utilities", "health", "entertainment", "other")
+    - "description" (string, brief description of the expense)
+    - "emotion" (string, one of: "neutral", "stress", "joy", "panic")
+    
+    If you cannot extract an amount, return amount as 0.
+    If the text is unclear, make your best guess based on context.
+    
+    Return ONLY the JSON object, no other text.
+    
+    Example responses:
+    {{"amount": 300, "category": "transport", "description": "Taxi ride home", "emotion": "neutral"}}
+    {{"amount": 1500, "category": "health", "description": "Pharmacy for toothache", "emotion": "stress"}}
+    """
+    
+    try:
+        print(f"🎤 Parsing voice input via AI: {transcript}")
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",  # Use the same model as other functions
+            contents=prompt
+        )
+        
+        # Clean up response
+        raw_text = response.text.strip()
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:-3]
+        elif raw_text.startswith("```"):
+            raw_text = raw_text[3:-3]
+        
+        parsed = json.loads(raw_text)
+        print(f"✅ AI parsed voice: {parsed}")
+        return parsed
+        
+    except Exception as e:
+        print(f"⚠️ Voice parsing failed: {e}")
+        print("🔄 Using smart fallback parser...")
+        
+        # SMART FALLBACK: Extract numbers and keywords without AI
+        import re
+        
+        # Extract numbers from transcript
+        numbers = re.findall(r'\d+', transcript)
+        amount = int(numbers[0]) if numbers else 0
+        
+        # Determine category from keywords
+        transcript_lower = transcript.lower()
+        category = "other"
+        description = transcript
+        
+        # Transport keywords
+        if any(word in transcript_lower for word in ["transport", "taxi", "bus", "ride", "car", "fuel", "መጓጓዣ", "ታክሲ", "አውቶብስ"]):
+            category = "transport"
+            description = "Transport expense"
+        # Food keywords
+        elif any(word in transcript_lower for word in ["food", "restaurant", "lunch", "dinner", "coffee", "meal", "ምግብ", "ቡና", "ሬስቶራንት"]):
+            category = "food"
+            description = "Food expense"
+        # Rent keywords
+        elif any(word in transcript_lower for word in ["rent", "house", "apartment", "ኪራይ", "ቤት"]):
+            category = "rent"
+            description = "Rent payment"
+        # Health keywords
+        elif any(word in transcript_lower for word in ["health", "medical", "doctor", "pharmacy", "medicine", "hospital", "ጤና", "መድሃኒት", "ሆስፒታል"]):
+            category = "health"
+            description = "Medical expense"
+        # Utilities keywords
+        elif any(word in transcript_lower for word in ["water", "electric", "utility", "bill", "ውሃ", "ኤሌትሪክ"]):
+            category = "utilities"
+            description = "Utility bill"
+        
+        # Determine emotion
+        emotion = "neutral"
+        if any(word in transcript_lower for word in ["stress", "panic", "emergency", "urgent", "worried"]):
+            emotion = "stress"
+        elif any(word in transcript_lower for word in ["happy", "joy", "celebrate", "fun"]):
+            emotion = "joy"
+        
+        fallback_result = {
+            "amount": amount,
+            "category": category,
+            "description": description,
+            "emotion": emotion
+        }
+        
+        print(f"✅ Fallback parsed: {fallback_result}")
+        return fallback_result

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from uuid import UUID
 from app.database import supabase
 from app.models import SpikeCreate
 
@@ -33,5 +34,14 @@ def log_spike(spike: SpikeCreate):
             }
         return {"message": "Spike logged, but no bucket found."}
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{user_id}")
+def get_user_spikes(user_id: UUID):
+    """Get all spikes for a user"""
+    try:
+        response = supabase.table("spikes").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).execute()
+        return response.data or []
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

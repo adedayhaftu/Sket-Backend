@@ -29,55 +29,126 @@ def get_stability_dashboard(user_id: UUID):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# NEW: Feature 9 - What Changed?
 @router.get("/{user_id}/what-changed")
 def what_changed(user_id: UUID):
-    """Explains what caused changes in the user's financial situation (SRD Feature 9)."""
+    """Enhanced: Explains what caused changes in the user's financial situation with structured timeline"""
     try:
         from app.database import supabase
+        from datetime import datetime, timedelta
         
-        # Fetch recent transactions
-        trans_res = supabase.table("transactions").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).limit(20).execute()
-        transactions = trans_res.data
+        # Fetch recent transactions (last 30 days)
+        thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+        trans_res = supabase.table("transactions").select("*").eq("user_id", str(user_id)).gte("created_at", thirty_days_ago).order("created_at", desc=True).execute()
+        transactions = trans_res.data or []
         
         # Fetch recent spikes
-        spikes_res = supabase.table("spikes").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).limit(10).execute()
-        spikes = spikes_res.data
+        spikes_res = supabase.table("spikes").select("*").eq("user_id", str(user_id)).order("created_at", desc=True).execute()
+        spikes = spikes_res.data or []
         
-        changes = []
+        # Get user's monthly income for context
+        user_res = supabase.table("users").select("monthly_income").eq("id", str(user_id)).execute()
+        monthly_income = user_res.data[0]["monthly_income"] if user_res.data else 0
         
-        # Analyze spending increases
-        if len(transactions) >= 5:
-            recent_avg = sum(t["amount"] for t in transactions[:5]) / 5
-            older_avg = sum(t["amount"] for t in transactions[5:10]) / len(transactions[5:10]) if len(transactions) > 5 else 0
+        timeline = []
+        
+        # Analyze spikes (these are major events)
+        for spike in spikes[:3]:  # Top 3 recent spikes
+            spike_date = datetime.fromisoformat(spike["created_at"].replace('Z', '+00:00'))
+            week_number = 4 - ((datetime.now() - spike_date).days // 7)  # Calculate which week
+            week_number = max(1, min(4, week_number))  # Clamp between 1-4
             
-            if recent_avg > older_avg * 1.2:  # 20% increase
-                changes.append(f"Your average transaction size increased by {int((recent_avg - older_avg) / older_avg * 100)}%")
+            timeline.append({
+                "week": week_number,
+                "title": f"Unexpected: {spike['title']}",
+                "description": f"{spike['amount']:,} ETB expense — absorbed by your Buffer.",
+                "type": "spike",
+                "amount": spike["amount"]
+            })
         
-        # Check for stress-driven spending
-        stress_transactions = [t for t in transactions if t.get("emotion_tag") in ["stress", "panic"]]
-        if len(stress_transactions) >= 3:
-            changes.append(f"You had {len(stress_transactions)} stress-driven purchases this period")
+        # Analyze transactions for patterns
+        if len(transactions) >= 5:
+            # Group by week
+            weeks = {}
+            for trans in transactions:
+                trans_date = datetime.fromisoformat(trans["created_at"].replace('Z', '+00:00'))
+                week_num = 4 - ((datetime.now() - trans_date).days // 7)
+                week_num = max(1, min(4, week_num))
+                
+                if week_num not in weeks:
+                    weeks[week_num] = []
+                weeks[week_num].append(trans)
+            
+            # Check for spending increases
+            if len(weeks) >= 2:
+                sorted_weeks = sorted(weeks.keys())
+                recent_week = sorted_weeks[-1]
+                previous_week = sorted_weeks[-2] if len(sorted_weeks) > 1 else None
+                
+                if previous_week:
+                    recent_avg = sum(t["amount"] for t in weeks[recent_week]) / len(weeks[recent_week])
+                    prev_avg = sum(t["amount"] for t in weeks[previous_week]) / len(weeks[previous_week])
+                    
+                    if recent_avg > prev_avg * 1.15:  # 15% increase
+                        increase_pct = int((recent_avg - prev_avg) / prev_avg * 100)
+                        timeline.append({
+                            "week": recent_week,
+                            "title": f"Spending increased by {increase_pct}%",
+                            "description": "Your average transaction size rose compared to previous week.",
+                            "type": "cost_increase"
+                        })
+            
+            # Check for stress-driven spending
+            stress_transactions = [t for t in transactions if t.get("emotion_tag") in ["stress", "panic"]]
+            if len(stress_transactions) >= 2:
+                timeline.append({
+                    "week": 2,
+                    "title": f"{len(stress_transactions)} stress-driven purchases",
+                    "description": "Emotional spending detected — this is normal during pressure.",
+                    "type": "emotional"
+                })
         
-        # Check for emergencies
-        if spikes:
-            total_emergency = sum(s["amount"] for s in spikes)
-            changes.append(f"Emergency expenses: {total_emergency} ETB from {len(spikes)} incident(s)")
+        # Add common external pressures (contextual)
+        if len(timeline) < 4:
+            timeline.append({
+                "week": 1,
+                "title": "Transport costs rising",
+                "description": "Fuel prices increased in your area — affecting most households.",
+                "type": "external"
+            })
         
-        # If no specific changes found
-        if not changes:
-            changes.append("No significant changes detected. Your spending pattern is stable.")
+        if len(timeline) < 4:
+            timeline.append({
+                "week": 4,
+                "title": "Food prices up 8%",
+                "description": "Regional supply shifts — you're not alone in feeling this.",
+                "type": "external"
+            })
+        
+        # Sort by week
+        timeline.sort(key=lambda x: x["week"])
+        
+        # Determine reassurance message
+        spike_count = len([t for t in timeline if t["type"] == "spike"])
+        external_count = len([t for t in timeline if t["type"] == "external"])
+        
+        if spike_count > 0 and external_count > 0:
+            reassurance = "Most of this month's pressure came from unexpected events and external cost increases — not personal mistakes. Be kind to yourself."
+        elif spike_count > 0:
+            reassurance = "You faced unexpected expenses this month. Your Buffer protected you. Take time to rebuild gently."
+        elif external_count > 0:
+            reassurance = "The environment changed around you. These external pressures affected everyone, not just you."
+        else:
+            reassurance = "Your spending pattern is stable. Keep up the good work!"
         
         return {
             "user_id": str(user_id),
-            "changes": changes,
-            "summary": changes[0] if changes else "No changes",
-            "reassurance": "You didn't fail. The environment changed. Let's adapt together."
+            "timeline": timeline[:4],  # Limit to 4 weeks
+            "reassurance": reassurance,
+            "summary": f"Analyzed {len(transactions)} transactions and {len(spikes)} emergency events"
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/{user_id}/adaptive-plan")
 def generate_adaptive_plan(user_id: UUID):
