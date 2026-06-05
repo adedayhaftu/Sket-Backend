@@ -1,7 +1,7 @@
 from app.database import supabase
 from uuid import UUID
 
-def calculate_stability_score(user_id: UUID):
+def calculate_stability_score(user_id: UUID, lang: str = "en"):
     """Calculates the 0-100 Stability Score based on SRD Feature 1 metrics."""
     
     # 1. Fetch User Data
@@ -56,13 +56,13 @@ def calculate_stability_score(user_id: UUID):
     # Ensure score doesn't go below 0
     score = max(0, score)
 
-    # --- DETERMINE STATUS LEVEL ---
+    # --- DETERMINE STATUS LEVEL (Translated) ---
     if score >= 75:
-        status = "🟢 Stable"
+        status = " Stable" if lang == "en" else "🟢 የተረጋ"
     elif score >= 50:
-        status = "🟡 Under Pressure"
+        status = "🟡 Under Pressure" if lang == "en" else "🟡 በና ላይ"
     else:
-        status = "🔴 High Stress Risk"
+        status = "🔴 High Stress Risk" if lang == "en" else "🔴 ከፍተኛ የጭንት አደጋ"
 
     return {
         "score": score,
@@ -74,7 +74,7 @@ def calculate_stability_score(user_id: UUID):
         }
     }
 
-def generate_pressure_forecast(user_id: UUID):
+def generate_pressure_forecast(user_id: UUID, lang: str = "en"):
     """Predicts future pressure based on recent spending patterns (SRD Feature 2)."""
     
     # Fetch recent categories to find recurring pressures
@@ -88,15 +88,15 @@ def generate_pressure_forecast(user_id: UUID):
     descriptions_seen = " ".join([t.get("description", "").lower() for t in transactions])
     
     if "school" in categories_seen or "school" in descriptions_seen:
-        forecast.append("Week 3: School fee pressure approaching")
+        forecast.append("Week 3: School fee pressure approaching" if lang == "en" else "ምንት 3: የትምህርት ክፍያ ጫና እየቀረበ ነው")
     if "transport" in categories_seen or "ride" in descriptions_seen:
-        forecast.append("Week 4: Transport costs rising")
+        forecast.append("Week 4: Transport costs rising" if lang == "en" else "ሳምንት 4: የትራንስፖርት ወዎች እየጨመሩ ናቸው")
     if "food" in categories_seen or "groceries" in descriptions_seen:
-        forecast.append("Week 2: Food inflation impact")
+        forecast.append("Week 2: Food inflation impact" if lang == "en" else "ሳምንት 2: የምግብ ዋጋ ንረት ተጽዕኖ")
         
     # Fallback if no specific patterns found
     if not forecast:
-        forecast.append("Week 3: General cost of living increase expected")
-        forecast.append("Week 4: Buffer depletion risk if spending continues")
+        forecast.append("Week 3: General cost of living increase expected" if lang == "en" else "ሳምንት 3: አጠቃላይ የሮ ውድነት ጭማሪ ይጠበቃል")
+        forecast.append("Week 4: Buffer depletion risk if spending continues" if lang == "en" else "ሳምንት 4: ጪው ከቀጠለ የማጠራቀሚያ መዳከም አደጋ")
 
     return forecast
