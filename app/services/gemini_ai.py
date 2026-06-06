@@ -1,6 +1,6 @@
 import os
 import json
-from google import genai
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,7 +11,7 @@ print(f"🔑 Gemini API Key loaded: {api_key[:10]}..." if api_key else "❌ Gemi
 if not api_key:
     raise Exception("GEMINI_API_KEY not found in .env file!")
 
-client = genai.Client(api_key=api_key)
+genai.configure(api_key=api_key)
 
 def analyze_emotion(description: str, category: str) -> str:
     if not description:
@@ -25,7 +25,8 @@ def analyze_emotion(description: str, category: str) -> str:
     """
     
     try:
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
         return response.text.strip().lower()
     except Exception as e:
         desc_lower = description.lower()
@@ -60,7 +61,8 @@ def generate_survival_plan(income: float, survival: float, joy: float, buffer: f
     """
     
     try:
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
         raw_text = response.text.strip()
         if raw_text.startswith("```json"): raw_text = raw_text[7:-3]
         elif raw_text.startswith("```"): raw_text = raw_text[3:-3]
@@ -100,7 +102,8 @@ def parse_voice_input(transcript: str, language: str = "auto") -> dict:
     """
     
     try:
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
         raw_text = response.text.strip()
         if raw_text.startswith("```json"): raw_text = raw_text[7:-3]
         elif raw_text.startswith("```"): raw_text = raw_text[3:-3]
