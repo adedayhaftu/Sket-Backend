@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from app.database import test_connection
 from fastapi.middleware.cors import CORSMiddleware
+from app.database import test_connection
 from app.routers import users, transactions, spikes, stability, buckets 
 
 app = FastAPI(
@@ -9,14 +9,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# ✅ FIXED CORS: When using "*", credentials MUST be False.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, OPTIONS, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_origins=["*"],  # Allow all domains (perfect for hackathon)
+    allow_credentials=False, # MUST BE FALSE WHEN ORIGINS IS "*"
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
 
 # Include all routers
 app.include_router(users.router)
