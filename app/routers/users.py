@@ -8,7 +8,8 @@ router = APIRouter(
     tags=["Users"]
 )
 
-@router.post("/", response_model=UserResponse)
+# ✅ Removed response_model to prevent 500 crash if DB is missing fields
+@router.post("/")
 def create_user(user: UserCreate):
     """Create a new user and initialize their buckets"""
     try:
@@ -18,20 +19,17 @@ def create_user(user: UserCreate):
         created_user = response.data[0]
         
         # 2. Auto-create buckets based on income
-        monthly_income = user.monthly_income
+        monthly_income = user.monthly_income or 0
         
-        # Calculate bucket allocations
         survival_amount = monthly_income * 0.51
         joy_amount = monthly_income * 0.08
         buffer_amount = monthly_income * 0.28
         
-        # ✅ FIXED: Removed "monthly_income" since it doesn't exist in buckets table
         bucket_data = {
             "user_id": created_user["id"],
             "survival_amount": survival_amount,
             "joy_amount": joy_amount,
             "buffer_amount": buffer_amount,
-            # Removed: "monthly_income": monthly_income,
         }
         
         supabase.table("buckets").insert(bucket_data).execute()
@@ -42,7 +40,6 @@ def create_user(user: UserCreate):
         print(f"!!! BACKEND ERROR IN CREATE USER: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         
-# Get all users (for testing)
 @router.get("/")
 def get_users():
     try:
@@ -53,7 +50,6 @@ def get_users():
 
 @router.get("/email/{email}")
 def get_user_by_email(email: str):
-    """Get user by email address"""
     try:
         response = supabase.table("users").select("*").eq("email", email).execute()
         if not response.data:
@@ -64,7 +60,6 @@ def get_user_by_email(email: str):
 
 @router.get("/{user_id}")
 def get_user_by_id(user_id: UUID):
-    """Get user by ID"""
     try:
         response = supabase.table("users").select("*").eq("id", str(user_id)).execute()
         if not response.data:
@@ -75,7 +70,6 @@ def get_user_by_id(user_id: UUID):
 
 @router.put("/{user_id}")
 def update_user(user_id: UUID, user: UserUpdate):
-    """Update user profile"""
     try:
         update_data = user.model_dump(exclude_unset=True)
         response = supabase.table("users").update(update_data).eq("id", str(user_id)).execute()
