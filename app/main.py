@@ -10,19 +10,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration - MUST BE FIRST
+# CORS Configuration - Allow your Vercel domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow ALL domains
-    allow_credentials=False,  # MUST BE FALSE when using "*"
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://sket-frontend-7fjy-702jejdid-hewan-meharis-projects.vercel.app",
+        "https://sket-frontend.vercel.app",
+        "https://*.vercel.app",  # Allow all Vercel preview URLs
+    ],
+    allow_credentials=True,  # Can be True now since we're listing specific domains
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
-
-# Handle ALL OPTIONS requests BEFORE routers
-@app.api_route("/{path:path}", methods=["OPTIONS"])
-async def options_handler(request: Request, path: str):
-    return Response(status_code=200)
 
 # Health check
 @app.get("/")
@@ -37,7 +38,7 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
-# Include routers AFTER CORS and OPTIONS handler
+# Include routers
 app.include_router(users.router)
 app.include_router(transactions.router)
 app.include_router(spikes.router)
