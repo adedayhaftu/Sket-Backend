@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import Response, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 from app.database import test_connection
 from app.routers import users, transactions, spikes, stability, buckets
 
@@ -10,20 +9,27 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration - Allow your Vercel domains
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://sket-frontend-7fjy-702jejdid-hewan-meharis-projects.vercel.app",
-        "https://sket-frontend.vercel.app",
-        "https://*.vercel.app",  # Allow all Vercel preview URLs
-    ],
-    allow_credentials=True,  # Can be True now since we're listing specific domains
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-)
+# BULLETPROOF CUSTOM CORS MIDDLEWARE
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    # 1. Handle preflight OPTIONS requests immediately
+    if request.method == "OPTIONS":
+        response = Response(status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Max-Age"] = "600"
+        return response
+
+    # 2. Process the actual request (GET, POST, etc.)
+    response = await call_next(request)
+
+    # 3. Add CORS headers to the response
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+
+    return response
 
 # Health check
 @app.get("/")
